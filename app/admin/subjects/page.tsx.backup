@@ -1,0 +1,767 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Plus, MoreHorizontal, BookOpen, Users, Calendar, FileText } from "lucide-react";
+import { toast } from "sonner";
+
+interface Subject {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  credits: number;
+  teacherId: string;
+  teacherName: string;
+  courseId: string;
+  courseName: string;
+  enrollmentCount: number;
+  scheduleCount: number;
+  createdAt: string;
+}
+
+interface Teacher {
+  id: string;
+  name: string;
+  employeeId: string;
+}
+
+interface Course {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export default function AdminSubjectsPage() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    code: "",
+    description: "",
+    credits: 3,
+    teacherId: "",
+    courseId: "",
+  });
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    code: "",
+    description: "",
+    credits: 3,
+    teacherId: "",
+    courseId: "",
+  });
+
+  const [bulkFormData, setBulkFormData] = useState({
+    teacherId: "",
+    courseId: "",
+    subjects: [
+      { name: "", code: "", description: "", credits: 3 }
+    ]
+  });
+
+  useEffect(() => {
+    fetchSubjects();
+    fetchTeachers();
+    fetchCourses();
+  }, []);
+
+  const fetchSubjects = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/admin/subjects');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSubjects(data.subjects);
+      } else {
+        toast.error(data.error || 'Failed to fetch subjects');
+      }
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      toast.error('Failed to fetch subjects');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const response = await fetch('/api/admin/teachers');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setTeachers(data.teachers);
+      } else {
+        console.error('Error fetching teachers:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch('/api/admin/courses');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCourses(data.courses);
+      } else {
+        console.error('Error fetching courses:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/admin/subjects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubjects(prev => [data.subject, ...prev]);
+        setIsDialogOpen(false);
+        setFormData({ name: "", code: "", description: "", credits: 3, teacherId: "", courseId: "" });
+        toast.success("Subject created successfully!");
+      } else {
+        toast.error(data.error || 'Failed to create subject');
+      }
+    } catch (error) {
+      console.error('Error creating subject:', error);
+      toast.error('Failed to create subject');
+    }
+  };
+
+  const handleEdit = (subject: Subject) => {
+    setSelectedSubject(subject);
+    setEditFormData({
+      name: subject.name,
+      code: subject.code,
+      description: subject.description,
+      credits: subject.credits,
+      teacherId: subject.teacherId,
+      courseId: subject.courseId,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSubject) return;
+
+    try {
+      const response = await fetch(`/api/admin/subjects/${selectedSubject.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editFormData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubjects(prev => prev.map(subject => 
+          subject.id === selectedSubject.id ? data.subject : subject
+        ));
+        setIsEditDialogOpen(false);
+        setSelectedSubject(null);
+        toast.success("Subject updated successfully!");
+      } else {
+        toast.error(data.error || 'Failed to update subject');
+      }
+    } catch (error) {
+      console.error('Error updating subject:', error);
+      toast.error('Failed to update subject');
+    }
+  };
+
+  const handleDelete = async (subject: Subject) => {
+    if (confirm(`Are you sure you want to delete ${subject.name}?`)) {
+      try {
+        const response = await fetch(`/api/admin/subjects/${subject.id}`, {
+          method: 'DELETE',
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setSubjects(prev => prev.filter(s => s.id !== subject.id));
+          toast.success("Subject deleted successfully!");
+        } else {
+          toast.error(data.error || 'Failed to delete subject');
+        }
+      } catch (error) {
+        console.error('Error deleting subject:', error);
+        toast.error('Failed to delete subject');
+      }
+    }
+  };
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!bulkFormData.teacherId || !bulkFormData.courseId) {
+      toast.error("Please select a teacher and course");
+      return;
+    }
+
+    const validSubjects = bulkFormData.subjects.filter(subject => 
+      subject.name.trim() && subject.code.trim()
+    );
+
+    if (validSubjects.length === 0) {
+      toast.error("Please add at least one subject");
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/subjects/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          teacherId: bulkFormData.teacherId,
+          courseId: bulkFormData.courseId,
+          subjects: validSubjects,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubjects(prev => [...data.subjects, ...prev]);
+        setIsBulkDialogOpen(false);
+        setBulkFormData({
+          teacherId: "",
+          courseId: "",
+          subjects: [{ name: "", code: "", description: "", credits: 3 }]
+        });
+        toast.success(`${data.subjects.length} subjects created successfully!`);
+      } else {
+        toast.error(data.error || 'Failed to create subjects');
+      }
+    } catch (error) {
+      console.error('Error creating subjects:', error);
+      toast.error('Failed to create subjects');
+    }
+  };
+
+  const addSubjectRow = () => {
+    setBulkFormData(prev => ({
+      ...prev,
+      subjects: [...prev.subjects, { name: "", code: "", description: "", credits: 3 }]
+    }));
+  };
+
+  const removeSubjectRow = (index: number) => {
+    if (bulkFormData.subjects.length > 1) {
+      setBulkFormData(prev => ({
+        ...prev,
+        subjects: prev.subjects.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const updateSubjectRow = (index: number, field: string, value: string | number) => {
+    setBulkFormData(prev => ({
+      ...prev,
+      subjects: prev.subjects.map((subject, i) => 
+        i === index ? { ...subject, [field]: value } : subject
+      )
+    }));
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="flex-1 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Subjects Management</h1>
+            <p className="text-muted-foreground">
+              Manage all subjects and their assignments to teachers
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Subject
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Add New Subject</DialogTitle>
+                <DialogDescription>
+                  Create a new subject and assign it to a teacher and course.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="code">Subject Code</Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                      placeholder="e.g., CS101, MATH201"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Subject Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g., Introduction to Computer Science"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Brief description of the subject"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="credits">Credits</Label>
+                    <Input
+                      id="credits"
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={formData.credits}
+                      onChange={(e) => setFormData(prev => ({ ...prev, credits: parseInt(e.target.value) || 3 }))}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="teacherId">Assign Teacher</Label>
+                    <Select value={formData.teacherId} onValueChange={(value) => setFormData(prev => ({ ...prev, teacherId: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a teacher" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teachers.map(teacher => (
+                          <SelectItem key={teacher.id} value={teacher.id}>
+                            {teacher.name} ({teacher.employeeId})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="courseId">Course</Label>
+                    <Select value={formData.courseId} onValueChange={(value) => setFormData(prev => ({ ...prev, courseId: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses.map(course => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.name} ({course.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Create Subject</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+            <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Bulk Add Subjects
+                </Button>
+              </DialogTrigger>
+            </Dialog>
+          </div>
+
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{subjects.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Active subjects
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Enrollments</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {subjects.reduce((sum, subject) => sum + subject.enrollmentCount, 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Across all subjects
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Scheduled Classes</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {subjects.reduce((sum, subject) => sum + subject.scheduleCount, 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total scheduled classes
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Credits</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {subjects.reduce((sum, subject) => sum + subject.credits, 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Credit hours
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Subjects Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>All Subjects</CardTitle>
+            <CardDescription>
+              Manage subjects and their teacher assignments.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Teacher</TableHead>
+                    <TableHead>Course</TableHead>
+                    <TableHead>Credits</TableHead>
+                    <TableHead>Students</TableHead>
+                    <TableHead>Schedules</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="w-[70px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subjects.map((subject) => (
+                    <TableRow key={subject.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{subject.name}</div>
+                          <div className="text-xs text-muted-foreground">{subject.description}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{String(subject.code)}</Badge>
+                      </TableCell>
+                      <TableCell>{subject.teacherName}</TableCell>
+                      <TableCell>{subject.courseName}</TableCell>
+                      <TableCell>{subject.credits}</TableCell>
+                      <TableCell>{subject.enrollmentCount}</TableCell>
+                      <TableCell>{subject.scheduleCount}</TableCell>
+                      <TableCell>{new Date(subject.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(subject)}>
+                              Edit Subject
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleDelete(subject)}
+                            >
+                              Delete Subject
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
+            {subjects.length === 0 && !isLoading && (
+              <div className="text-center py-8 text-muted-foreground">
+                No subjects created yet. Click "Add Subject" to get started.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Edit Subject Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Subject</DialogTitle>
+              <DialogDescription>
+                Update subject information and assignments.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSaveEdit}>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="editCode">Subject Code</Label>
+                  <Input
+                    id="editCode"
+                    value={editFormData.code}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, code: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="editName">Subject Name</Label>
+                  <Input
+                    id="editName"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="editDescription">Description</Label>
+                  <Textarea
+                    id="editDescription"
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="editCredits">Credits</Label>
+                  <Input
+                    id="editCredits"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={editFormData.credits}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, credits: parseInt(e.target.value) || 3 }))}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="editTeacherId">Assign Teacher</Label>
+                  <Select value={editFormData.teacherId} onValueChange={(value) => setEditFormData(prev => ({ ...prev, teacherId: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers.map(teacher => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name} ({teacher.employeeId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="editCourseId">Course</Label>
+                  <Select value={editFormData.courseId} onValueChange={(value) => setEditFormData(prev => ({ ...prev, courseId: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses.map(course => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name} ({course.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Update Subject</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Add Subjects Dialog */}
+        <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Bulk Add Subjects</DialogTitle>
+              <DialogDescription>
+                Create multiple subjects for a teacher and course at once.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleBulkSubmit}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="bulkTeacherId">Assign Teacher</Label>
+                    <Select value={bulkFormData.teacherId} onValueChange={(value) => setBulkFormData(prev => ({ ...prev, teacherId: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a teacher" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teachers.map(teacher => (
+                          <SelectItem key={teacher.id} value={teacher.id}>
+                            {teacher.name} ({teacher.employeeId})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="bulkCourseId">Course</Label>
+                    <Select value={bulkFormData.courseId} onValueChange={(value) => setBulkFormData(prev => ({ ...prev, courseId: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses.map(course => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.name} ({course.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-medium">Subjects to Create</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addSubjectRow}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Subject
+                    </Button>
+                  </div>
+
+                  {bulkFormData.subjects.map((subject, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg">
+                      <div className="col-span-3">
+                        <Label htmlFor={`subject-${index}-name`}>Name</Label>
+                        <Input
+                          id={`subject-${index}-name`}
+                          value={subject.name}
+                          onChange={(e) => updateSubjectRow(index, 'name', e.target.value)}
+                          placeholder="Subject name"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label htmlFor={`subject-${index}-code`}>Code</Label>
+                        <Input
+                          id={`subject-${index}-code`}
+                          value={subject.code}
+                          onChange={(e) => updateSubjectRow(index, 'code', e.target.value)}
+                          placeholder="CS101"
+                          required
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <Label htmlFor={`subject-${index}-description`}>Description</Label>
+                        <Input
+                          id={`subject-${index}-description`}
+                          value={subject.description}
+                          onChange={(e) => updateSubjectRow(index, 'description', e.target.value)}
+                          placeholder="Brief description"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label htmlFor={`subject-${index}-credits`}>Credits</Label>
+                        <Input
+                          id={`subject-${index}-credits`}
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={subject.credits}
+                          onChange={(e) => updateSubjectRow(index, 'credits', parseInt(e.target.value) || 3)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        {bulkFormData.subjects.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeSubjectRow(index)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Create {bulkFormData.subjects.length} Subjects</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
+  );
+}
