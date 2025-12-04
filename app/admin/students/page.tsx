@@ -379,14 +379,6 @@ export default function AdminStudentsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => toast.success("CSV import functionality coming soon!")}>
-              <Upload className="mr-2 h-4 w-4" />
-              Import CSV
-            </Button>
-            <Button variant="outline" onClick={() => toast.success("Exporting student list...")}>
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button>

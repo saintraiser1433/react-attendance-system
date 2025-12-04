@@ -571,14 +571,6 @@ export default function StudentsPage() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleImport}>
-              <Upload className="mr-2 h-4 w-4" />
-              Import CSV
-            </Button>
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button>

@@ -298,7 +298,7 @@ export default function TeacherEnrollmentsPage() {
     }
     
     if (filters.yearLevel) {
-      filtered = filtered.filter(e => e.yearLevel.toString() === filters.yearLevel);
+      filtered = filtered.filter(e => e.yearLevel && e.yearLevel.toString() === filters.yearLevel);
     }
 
     return filtered;
@@ -358,7 +358,9 @@ export default function TeacherEnrollmentsPage() {
   const getUniqueYearLevels = () => {
     const yearLevels = new Set<string>();
     enrollments.forEach(enrollment => {
-      yearLevels.add(enrollment.yearLevel);
+      if (enrollment.yearLevel) {
+        yearLevels.add(enrollment.yearLevel);
+      }
     });
     return Array.from(yearLevels).sort();
   };
@@ -695,7 +697,7 @@ export default function TeacherEnrollmentsPage() {
                   <SelectContent>
                     <SelectItem value="all">All year levels</SelectItem>
                     {getUniqueYearLevels().map(yearLevel => (
-                      <SelectItem key={yearLevel} value={yearLevel.toString()}>{yearLevel}</SelectItem>
+                      <SelectItem key={yearLevel} value={yearLevel}>{yearLevel}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
